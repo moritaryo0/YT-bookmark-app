@@ -30,5 +30,6 @@ urlpatterns = [
 
 
     path('api/toggle-bookmark/', views.toggle_bookmark, name='toggle_bookmark'),
-    path('api/remove-bookmark/<int:bookmark_id>/', views.remove_bookmark,name='remove_bookmark'),
+    path('api/save-video-url/', views.save_video_from_url, name='save_video_from_url'),
+    path('api/remove-bookmark/<int:bookmark_id>/', views.remove_bookmark, name='remove_bookmark'),
 ]

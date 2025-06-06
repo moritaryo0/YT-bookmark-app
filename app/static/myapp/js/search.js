@@ -86,19 +86,52 @@ document.addEventListener('DOMContentLoaded', function() {
             saveBtn.classList.add('loading');
             resultDiv.style.display = 'none';
             
-            // ここでサーバーにURL送信する処理を実装
-            // 実際のAPI呼び出しは次のステップで実装
+            // CSRFトークンを取得
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             
-            setTimeout(() => {
+            // サーバーにURL送信
+            fetch('/api/save-video-url/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    url: videoUrl
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success || data.video) {
+                    // 成功またはすでに存在する場合
+                    showSaveResult({
+                        title: data.video.title,
+                        channel: data.video.channelTitle,
+                        thumbnail: data.video.thumbnail,
+                        url: data.video.url
+                    });
+                    
+                    if (data.success) {
+                        showToast(data.message, 'success');
+                    } else {
+                        showToast(data.message, 'warning');
+                    }
+                    
+                    // フォームをクリア
+                    urlInput.value = '';
+                } else {
+                    showToast(data.error || 'エラーが発生しました', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('通信エラーが発生しました', 'error');
+            })
+            .finally(() => {
+                // ローディング状態を解除
                 saveBtn.disabled = false;
                 saveBtn.classList.remove('loading');
-                showSaveResult({
-                    title: 'サンプル動画タイトル',
-                    channel: 'サンプルチャンネル',
-                    thumbnail: 'https://via.placeholder.com/320x180',
-                    url: videoUrl
-                });
-            }, 2000);
+            });
         });
     }
 });
@@ -156,9 +189,14 @@ function showToast(message, type = 'success') {
     
     const toast = document.createElement('div');
     toast.className = `toast-notification ${type}`;
+    
+    let iconClass = 'fa-check-circle';
+    if (type === 'error') iconClass = 'fa-exclamation-circle';
+    if (type === 'warning') iconClass = 'fa-exclamation-triangle';
+    
     toast.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px;">
-            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+            <i class="fas ${iconClass}"></i>
             <span>${message}</span>
         </div>
     `;
@@ -184,7 +222,9 @@ function showToast(message, type = 'success') {
 function isValidYouTubeUrl(url) {
     const patterns = [
         /^https?:\/\/(www\.)?youtube\.com\/watch\?v=[\w-]+/,
-        /^https?:\/\/youtu\.be\/[\w-]+/
+        /^https?:\/\/youtu\.be\/[\w-]+/,
+        /^https?:\/\/(www\.)?youtube\.com\/embed\/[\w-]+/,
+        /^https?:\/\/(www\.)?youtube\.com\/v\/[\w-]+/
     ];
     return patterns.some(pattern => pattern.test(url));
 }

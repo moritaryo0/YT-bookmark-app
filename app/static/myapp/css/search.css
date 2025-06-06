@@ -375,6 +375,12 @@
     background: rgba(220, 53, 69, 0.1);
 }
 
+/* 警告用トーストスタイルを追加 */
+.toast-notification.warning {
+    border-color: #ffc107;
+    background: rgba(255, 193, 7, 0.1);
+}
+
 /* URL直接保存セクション */
 .url-save-container {
     max-width: 1200px;

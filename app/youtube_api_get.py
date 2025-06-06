@@ -1,4 +1,5 @@
 import os
+import re
 from googleapiclient.discovery import build
 
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
@@ -72,25 +73,56 @@ def get_channel_id_by_channel_name(channel_name):
 
     return response['items'][0]['snippet']['channelId']
 
-##2.受け取ったurlの形式を判定
-import re
-
-def parse_channel_url(url):
-    # パターン1: /channel/ 形式
-    match = re.search(r'youtube\.com/channel/([a-zA-Z0-9_-]+)', url)
-    if match:
-        return match.group(1)
-
-    # パターン2: /@handle 形式（APIで解決）
-    match = re.search(r'youtube\.com/@([a-zA-Z0-9_-]+)', url)
-    if match:
-        handle =  match.group(1)  # → ここでハンドル名からAPI検索へ
-        return get_channel_id_by_channel_name(handle)
-
-    # パターン3: /c/カスタムURL形式
-    match = re.search(r'youtube\.com/c/([a-zA-Z0-9_-]+)', url)
-    if match:
-        handle =  match.group(1)  # → これもAPI検索へ
-        return get_channel_id_by_channel_name(handle)
-
+##urlからvideoIDを抽出 
+def extract_video_id_from_url(url):
+    patterns = [
+        r'(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})',
+        r'youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})',
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    
     return None
+
+##videoIDから詳細データを取得する
+def get_video_details_by_id(video_id):
+    try:
+        youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, developerKey=YOUTUBE_API_KEY)
+
+        response = youtube.videos().list(
+            part='snippet,statistics',
+            id=video_id
+        ).execute()
+
+        if not response.get('items'):
+            return None
+        
+        video_item = response['items'][0]
+        snippet = video_item['snippet']
+
+        thumbnails = snippet.get('thumbnails', {})
+        thumbnail_url = (
+            thumbnails.get('high', {}).get('url') or
+            thumbnails.get('medium', {}).get('url') or
+            thumbnails.get('default', {}).get('url') or
+            ''
+        )
+        
+
+        video_data = {
+            'videoId': video_id,
+            'title': snippet.get('title',''),
+            'thumbnail': thumbnail_url,
+            'channelId': snippet.get('channelId',''),
+            'channelTitle': snippet.get('channelTitle',''),
+        }
+
+        return video_data
+
+
+    except Exception as e:
+        print(f"Error:{e}")
+        return None

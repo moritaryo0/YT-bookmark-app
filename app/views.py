@@ -3,7 +3,7 @@ from django.contrib.auth import login, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, YouTube_SearchForm
-from .youtube_api_get import get_latest_video_by_channel_id
+from .youtube_api_get import get_latest_video_by_channel_id, extract_video_id_from_url, get_video_details_by_id
 from .models import Video, Bookmark
 from django.views.decorators.http import require_POST
 from datetime import datetime
@@ -134,3 +134,65 @@ def favorites(request):
     }
     return render(request, 'myapp/favorites.html', context)
 
+@login_required
+@require_POST
+def save_video_from_url(request):
+    try:
+        data = json.loads(request.body)
+        video_url = data.get('url','').strip()
+
+        if not video_url:
+            return JsonResponse({'error':'urlを指定してください'})
+        
+        video_id = extract_video_id_from_url(video_url)
+        if not video_id:
+            return JsonResponse({'error':'無効なURLです'})
+        
+        video_info = get_video_details_by_id(video_id)
+        if not video_info:
+            return JsonResponse({'error':'エラーが発生しまsiた'})
+        
+        video, created = Video.objects.get_or_create(
+            video_id=video_info['videoId'],
+            defaults={
+                'title': video_info['title'],
+                'thumbnail_url': video_info['thumbnail'],
+                'published_at':datetime.now(),
+                'channel_id': video_info['channelId'],
+                'channel_title': video_info['channelTitle'],
+            }
+        )
+
+        bookmark, bookmark_created = Bookmark.objects.get_or_create(
+            user=request.user,
+            video=video
+        )
+        if bookmark_created:
+            return JsonResponse({
+                'success': True,
+                'message': 'ブックマークに追加しました',
+                'video': {
+                    'videoId': video_info['videoId'],
+                    'title': video_info['title'],
+                    'thumbnail': video_info['thumbnail'],
+                    'channelTitle': video_info['channelTitle'],
+                    'url': f"https://www.youtube.com/watch?v={video_info['videoId']}",
+                }
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': 'この動画は既にブックマークされています',
+                'video': {
+                    'videoId': video_info['videoId'],
+                    'title': video_info['title'],
+                    'thumbnail': video_info['thumbnail'],
+                    'channelTitle': video_info['channelTitle'],
+                    'url': f"https://www.youtube.com/watch?v={video_info['videoId']}"
+                }
+            })
+    except json.JSONDecodeError:
+        return JsonResponse({'error': '無効なJSONデータです'}, status=400)
+    except Exception as e:
+        print(f"Error in save_video_from_url: {e}")
+        return JsonResponse({'error': 'サーバーエラーが発生しました'}, status=500)
