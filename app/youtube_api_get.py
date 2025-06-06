@@ -1,11 +1,17 @@
+import os
 from googleapiclient.discovery import build
 
-YOUTUBE_API_KEY = 'AIzaSyD19rdm2o0WgU1ZNBjNqRQl8yAhvwrtqEE'
+YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
+if not YOUTUBE_API_KEY:
+    print("Warning: YOUTUBE_API_KEY environment variable is not set. YouTube API functionality will be disabled.")
+    YOUTUBE_API_KEY = None
 YOUTUBE_API_SERVICE_NAME = 'youtube'
 YOUTUBE_API_VERSION = 'v3'
 
 ##チャンネルIDから最新の動画を取得
 def get_latest_video_by_channel_id(channel_id, keyword = None, max_results = None):
+    if not YOUTUBE_API_KEY:
+        return []
     youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, developerKey=YOUTUBE_API_KEY)
     channel_response = youtube.channels().list(
         part='contentDetails,snippet',
@@ -51,6 +57,8 @@ def get_latest_video_by_channel_id(channel_id, keyword = None, max_results = Non
 ##1.受け取ったチャンネル名からチャンネルIDを取得
 
 def get_channel_id_by_channel_name(channel_name):
+    if not YOUTUBE_API_KEY:
+        return None
     youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, developerKey=YOUTUBE_API_KEY)
     response = youtube.search().list(
         part='snippet',
