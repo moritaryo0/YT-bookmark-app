@@ -1,0 +1,574 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}お気に入り - YouTube Bookmark{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- ヘッダーセクション -->
+    <div class="favorites-header mb-5">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div class="d-flex align-items-center">
+                <div class="favorites-icon me-3">
+                    <i class="fas fa-bookmark"></i>
+                </div>
+                <div>
+                    <h1 class="favorites-title mb-0">お気に入り動画</h1>
+                    <p class="favorites-subtitle mb-0">あなたがブックマークした動画 ({{ total_count }}件)</p>
+                </div>
+            </div>
+            <a href="{% url 'search' %}" class="btn btn-primary">
+                <i class="fas fa-search me-2"></i>
+                動画を検索
+            </a>
+        </div>
+        
+        <!-- 検索フォーム -->
+        {% if total_count > 0 %}
+        <div class="search-container">
+            <form method="get" class="d-flex">
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" name="q" value="{{ search_query }}" 
+                           class="form-control" placeholder="ブックマークした動画を検索...">
+                    <button class="btn btn-outline-secondary" type="submit">
+                        検索
+                    </button>
+                    {% if search_query %}
+                    <a href="{% url 'favorites' %}" class="btn btn-outline-danger">
+                        <i class="fas fa-times"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ブックマーク一覧 -->
+    {% if bookmarks %}
+        {% if search_query %}
+        <div class="search-results-info mb-3">
+            <p class="text-muted">
+                <i class="fas fa-filter me-1"></i>
+                「{{ search_query }}」の検索結果: {{ bookmarks|length }}件
+            </p>
+        </div>
+        {% endif %}
+        
+        <div class="bookmarks-grid">
+            {% for bookmark in bookmarks %}
+                <div class="bookmark-card">
+                    <div class="bookmark-number">{{ forloop.counter }}</div>
+                    
+                    <!-- サムネイル -->
+                    <div class="bookmark-thumbnail-container">
+                        <img src="{{ bookmark.video.thumbnail_url }}" 
+                             alt="{{ bookmark.video.title }}" 
+                             class="bookmark-thumbnail">
+                        <div class="bookmark-overlay">
+                            <a href="https://www.youtube.com/watch?v={{ bookmark.video.video_id }}" 
+                               target="_blank" 
+                               class="play-button">
+                                <i class="fas fa-play"></i>
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- コンテンツ -->
+                    <div class="bookmark-content">
+                        <h3 class="bookmark-title">{{ bookmark.video.title }}</h3>
+                        
+                        <div class="bookmark-meta">
+                            <div class="bookmark-date">
+                                <i class="fas fa-bookmark me-1"></i>
+                                {{ bookmark.created_at|date:"Y年m月d日 H:i" }}
+                            </div>
+                            <div class="bookmark-video-id">
+                                <i class="fab fa-youtube me-1"></i>
+                                {{ bookmark.video.video_id }}
+                            </div>
+                        </div>
+                        
+                        <!-- アクションボタン -->
+                        <div class="bookmark-actions">
+                            <a href="https://www.youtube.com/watch?v={{ bookmark.video.video_id }}" 
+                               target="_blank" 
+                               class="btn btn-youtube">
+                                <i class="fab fa-youtube me-1"></i>
+                                YouTube で視聴
+                            </a>
+                            
+                            <form method="post" 
+                                  action="{% url 'remove_bookmark' bookmark.id %}"
+                                  class="d-inline"
+                                  onsubmit="return confirm('このブックマークを削除しますか？')">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-delete">
+                                    <i class="fas fa-trash me-1"></i>
+                                    削除
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        
+    {% else %}
+        <!-- ブックマークが空の場合 -->
+        <div class="empty-state">
+            {% if search_query %}
+                <!-- 検索結果が空の場合 -->
+                <div class="empty-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <h3>「{{ search_query }}」に一致するブックマークが見つかりません</h3>
+                <p>別のキーワードで検索するか、検索条件をクリアしてください</p>
+                <div class="empty-actions">
+                    <a href="{% url 'favorites' %}" class="btn btn-primary">
+                        <i class="fas fa-list me-2"></i>
+                        全てのブックマークを表示
+                    </a>
+                </div>
+            {% else %}
+                <!-- ブックマークが全くない場合 -->
+                <div class="empty-icon">
+                    <i class="fas fa-bookmark"></i>
+                </div>
+                <h3>まだブックマークがありません</h3>
+                <p>YouTube動画を検索して、お気に入りの動画をブックマークしましょう！</p>
+                <div class="empty-actions">
+                    <a href="{% url 'search' %}" class="btn btn-primary">
+                        <i class="fas fa-search me-2"></i>
+                        動画を検索してブックマーク
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+<style>
+/* お気に入りページ専用スタイル */
+.favorites-header {
+    /* ライトモード/ダークモード対応のグラデーション */
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    border: 1px solid var(--border-color);
+}
+
+.favorites-icon {
+    width: 60px;
+    height: 60px;
+    background: var(--primary-gradient);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+    box-shadow: var(--shadow-medium);
+}
+
+.favorites-title {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.favorites-subtitle {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+.search-container {
+    max-width: 600px;
+}
+
+.input-group-text {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+}
+
+/* 検索フォームのダークモード対応 */
+.search-container .form-control {
+    background: var(--bg-primary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.search-container .form-control:focus {
+    background: var(--bg-primary);
+    border-color: var(--primary-color);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 0.2rem rgba(var(--primary-color-rgb), 0.25);
+}
+
+.search-container .form-control::placeholder {
+    color: var(--text-secondary);
+}
+
+.search-container .btn-outline-secondary {
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+}
+
+.search-container .btn-outline-secondary:hover {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.search-container .btn-outline-danger {
+    border-color: #dc3545;
+    color: #dc3545;
+    background: var(--bg-primary);
+}
+
+.search-container .btn-outline-danger:hover {
+    background: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+/* コンパクトグリッド：デスクトップで4つ、タブレットで3つ表示 */
+.bookmarks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.bookmark-card {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-light);
+    border: 1px solid var(--border-color);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.bookmark-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-heavy);
+    border-color: var(--primary-color);
+}
+
+.bookmark-number {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    z-index: 2;
+}
+
+/* コンパクトなサムネイル */
+.bookmark-thumbnail-container {
+    position: relative;
+    width: 100%;
+    height: 160px;
+    overflow: hidden;
+}
+
+.bookmark-thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bookmark-card:hover .bookmark-thumbnail {
+    transform: scale(1.05);
+}
+
+.bookmark-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bookmark-card:hover .bookmark-overlay {
+    opacity: 1;
+}
+
+.play-button {
+    width: 50px;
+    height: 50px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1rem;
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-medium);
+}
+
+.play-button:hover {
+    background: #cc0000;
+    color: white;
+    transform: scale(1.1);
+}
+
+/* コンパクトなコンテンツエリア */
+.bookmark-content {
+    padding: 1rem;
+}
+
+.bookmark-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.bookmark-meta {
+    margin-bottom: 1rem;
+}
+
+.bookmark-date, .bookmark-video-id {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-bottom: 0.4rem;
+}
+
+/* コンパクトなボタン */
+.bookmark-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.btn-youtube {
+    background: #ff0000;
+    color: white;
+    border: none;
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex: 1;
+    text-align: center;
+    min-width: 100px;
+}
+
+.btn-youtube:hover {
+    background: #cc0000;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.btn-delete {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-delete:hover {
+    background: #dc3545;
+    color: white;
+    border-color: #dc3545;
+    transform: translateY(-1px);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-secondary);
+}
+
+.empty-icon {
+    width: 100px;
+    height: 100px;
+    background: var(--bg-tertiary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 2rem;
+    font-size: 2.5rem;
+    color: var(--text-secondary);
+}
+
+.empty-state h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.empty-state p {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.empty-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.search-results-info {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    border-left: 4px solid var(--primary-color);
+}
+
+/* ダークモード専用スタイル */
+[data-theme="dark"] .favorites-header {
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(255, 255, 255, 0.05) 100%);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .search-container .input-group-text {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .bookmark-number {
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 1200px) {
+    .bookmarks-grid {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+}
+
+@media (max-width: 992px) {
+    .bookmarks-grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .bookmarks-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+    
+    .bookmark-card {
+        border-radius: 8px;
+    }
+    
+    .bookmark-thumbnail-container {
+        height: 120px;
+    }
+    
+    .bookmark-content {
+        padding: 0.75rem;
+    }
+    
+    .bookmark-title {
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+    }
+    
+    .bookmark-date, .bookmark-video-id {
+        font-size: 0.7rem;
+        margin-bottom: 0.3rem;
+    }
+    
+    .bookmark-actions {
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+    
+    .btn-youtube, .btn-delete {
+        min-width: unset;
+        width: 100%;
+        font-size: 0.75rem;
+        padding: 5px 8px;
+    }
+    
+    .bookmark-number {
+        top: 6px;
+        left: 6px;
+        padding: 3px 6px;
+        font-size: 0.7rem;
+    }
+    
+    .play-button {
+        width: 40px;
+        height: 40px;
+        font-size: 0.9rem;
+    }
+    
+    .favorites-header {
+        padding: 1.5rem;
+    }
+    
+    .favorites-header .d-flex {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .favorites-title {
+        font-size: 1.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .bookmarks-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+    }
+    
+    .bookmark-thumbnail-container {
+        height: 100px;
+    }
+    
+    .bookmark-content {
+        padding: 0.5rem;
+    }
+    
+    .bookmark-title {
+        font-size: 0.8rem;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+    }
+}
+</style>
+{% endblock %} 

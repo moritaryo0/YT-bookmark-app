@@ -1,0 +1,201 @@
+{% extends 'myapp/base.html' %}
+{% load static %}
+
+{% block title %}検索 - YouTube Bookmark{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'myapp/css/search.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- ヘッダーセクション -->
+    <div class="search-header mb-5">
+        <div class="d-flex align-items-center mb-3">
+            <div class="search-icon me-3">
+                <i class="fas fa-search"></i>
+            </div>
+            <h1 class="search-title mb-0">動画を探す</h1>
+        </div>
+        <p class="search-subtitle">YouTubeチャンネルから動画を検索して、お気に入りに追加しましょう</p>
+    </div>
+
+    <!-- 検索フォーム -->
+    <div class="search-form-container mb-5">
+        <div class="search-form-card">
+            <form method="post" class="search-form">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-lg-3 col-md-6">
+                        <div class="form-floating">
+                            {{ form.channel_id }}
+                            <label for="{{ form.channel_id.id_for_label }}">{{ form.channel_id.label }}</label>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <div class="form-floating">
+                            {{ form.keyword }}
+                            <label for="{{ form.keyword.id_for_label }}">{{ form.keyword.label }}</label>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-6">
+                        <div class="form-floating">
+                            {{ form.max_results }}
+                            <label for="{{ form.max_results.id_for_label }}">{{ form.max_results.label }}</label>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6 d-flex align-items-end">
+                        <button class="btn btn-primary btn-search w-100" type="submit">
+                            <i class="fas fa-search me-2"></i>
+                            動画を検索
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- URL直接保存セクション - 検索結果が表示されていない時のみ表示 -->
+    {% if not videos %}
+    <div class="url-save-container mb-5">
+        <div class="url-save-card">
+            <div class="url-save-header mb-4">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="url-icon me-3">
+                        <i class="fas fa-link"></i>
+                    </div>
+                    <h3 class="url-title mb-0">URL直接保存</h3>
+                </div>
+                <p class="url-subtitle">YouTube動画のURLを入力して、直接ブックマークに保存できます</p>
+            </div>
+            
+            <form id="url-save-form" class="url-form">
+                {% csrf_token %}
+                <div class="row g-3 align-items-end">
+                    <div class="col-lg-8 col-md-7">
+                        <div class="form-floating">
+                            <input type="url" 
+                                   class="form-control" 
+                                   id="video-url" 
+                                   placeholder="https://www.youtube.com/watch?v=..."
+                                   required>
+                            <label for="video-url">YouTube動画URL</label>
+                        </div>
+                        <div class="form-text mt-2">
+                            <i class="fas fa-info-circle me-1"></i>
+                            例: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-5">
+                        <button class="btn btn-success btn-save w-100" type="submit">
+                            <i class="fas fa-bookmark me-2"></i>
+                            <span class="save-btn-text">保存</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+            
+            <!-- 保存結果表示エリア -->
+            <div id="save-result" class="save-result mt-4" style="display: none;">
+                <div class="save-result-content">
+                    <div class="save-thumbnail">
+                        <img id="result-thumbnail" src="" alt="サムネイル">
+                    </div>
+                    <div class="save-info">
+                        <h5 id="result-title" class="save-video-title"></h5>
+                        <p id="result-channel" class="save-video-channel"></p>
+                        <div class="save-actions">
+                            <a id="result-link" href="" target="_blank" class="btn btn-outline-primary btn-sm">
+                                <i class="fab fa-youtube me-1"></i>YouTube
+                            </a>
+                            <span class="save-status">
+                                <i class="fas fa-check-circle text-success me-1"></i>
+                                保存完了
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 検索結果 -->
+    <div class="search-results">
+        {% if videos %}
+            <div class="results-header mb-4">
+                <h3 class="results-title">検索結果 ({{ videos|length }}件)</h3>
+                <p class="results-subtitle">お気に入りに追加したい動画を見つけましょう</p>
+            </div>
+            
+            <div class="video-grid">
+                {% for video in videos %}
+                    <div class="video-card" data-video-id="{{ video.videoId }}">
+                        <div class="video-number">{{ forloop.counter }}</div>
+                        <div class="video-thumbnail-container">
+                            <img src="{{ video.thumbnail }}" alt="thumbnail" class="video-thumbnail">
+                            <div class="play-overlay">
+                                <i class="fas fa-play"></i>
+                            </div>
+                        </div>
+                        <div class="video-content">
+                            <h4 class="video-title">{{ video.title }}</h4>
+                            <div class="video-actions">
+                                <a href="https://www.youtube.com/watch?v={{ video.videoId }}" 
+                                   target="_blank" 
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="fab fa-youtube me-1"></i>
+                                    YouTube
+                                </a>
+                                <button class="btn btn-sm bookmark-btn" 
+                                        type="button"
+                                        data-video-id="{{ video.videoId }}"
+                                        data-video-title="{{ video.title }}"
+                                        data-video-thumbnail="{{ video.thumbnail }}"
+                                        data-video-published="{{ video.publishedAt }}"
+                                        data-channel-id="{{ video.channelId }}"
+                                        data-channel-title="{{ video.channelTitle }}"
+                                        data-bookmarked="{% if video.videoId in bookmarked_video_ids %}true{% else %}false{% endif %}">
+                                    <i class="fas fa-bookmark me-1"></i>
+                                    <span class="bookmark-text">
+                                        {% if video.videoId in bookmarked_video_ids %}ブックマーク済み{% else %}ブックマーク{% endif %}
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            
+        {% elif videos is not none %}
+            <div class="no-results">
+                <div class="no-results-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <h3>動画が見つかりませんでした</h3>
+                <p>検索条件を変更して、もう一度お試しください</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- プレビューモーダル -->
+<div id="player-modal" class="player-modal">
+    <div class="player-container">
+        <div class="player-header">
+            <h4>動画プレビュー</h4>
+            <button id="close-player" class="btn-close-player">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="player-content"></div>
+    </div>
+</div>
+
+<!-- 通知トースト -->
+<div id="toast-container" class="position-fixed" style="top: 20px; right: 20px; z-index: 9999;"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'myapp/js/search.js' %}"></script>
+{% endblock %} 
