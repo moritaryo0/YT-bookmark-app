@@ -167,29 +167,27 @@ def save_video_from_url(request):
             user=request.user,
             video=video
         )
+
+        video_response = {
+            'videoId': video_info['videoId'],
+            'title': video_info['title'],
+            'thumbnail': video_info['thumbnail'],
+            'channelTitle': video_info['channelTitle'],
+            'channelId': video_info['channelId'], 
+            'url': f"https://www.youtube.com/watch?v={video_info['videoId']}",
+        }
+
         if bookmark_created:
             return JsonResponse({
                 'success': True,
                 'message': 'ブックマークに追加しました',
-                'video': {
-                    'videoId': video_info['videoId'],
-                    'title': video_info['title'],
-                    'thumbnail': video_info['thumbnail'],
-                    'channelTitle': video_info['channelTitle'],
-                    'url': f"https://www.youtube.com/watch?v={video_info['videoId']}",
-                }
+                'video': video_response
             })
         else:
             return JsonResponse({
                 'success': False,
                 'message': 'この動画は既にブックマークされています',
-                'video': {
-                    'videoId': video_info['videoId'],
-                    'title': video_info['title'],
-                    'thumbnail': video_info['thumbnail'],
-                    'channelTitle': video_info['channelTitle'],
-                    'url': f"https://www.youtube.com/watch?v={video_info['videoId']}"
-                }
+                'video': video_response
             })
     except json.JSONDecodeError:
         return JsonResponse({'error': '無効なJSONデータです'}, status=400)
