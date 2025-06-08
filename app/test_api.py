@@ -1,11 +1,15 @@
-from .models import Video, Bookmark
-from django.contrib.auth.models import User
 from datetime import datetime
-
-new_video = Video.objects.create(
-    video_id = 'P4rVZi36D-c',
-    title = 'ミサイドもん#2【ずんだもん】',
-    channel_id = 'UC_E1wWVfcVeGGXABOLPjy0g',
-    thumbnail_url = 'https://i.ytimg.com/vi/P4rVZi36D-c/hqdefault.jpg',
-    published_at = datetime.now(),
-)
+from youtube_api_get import extract_channel_id_from_url
+test_cases = [
+    # (input_url, expected_output)
+    ('https://www.youtube.com/channel/UC_x5XG1OV2P6uZZ5FSM9Ttw', 'UC_x5XG1OV2P6uZZ5FSM9Ttw'),
+    ('https://www.youtube.com/@GoogleDevelopers', 'APIで解決される値'),
+    ('https://www.youtube.com/c/GoogleDevelopers', 'APIで解決される値'),
+    ('https://www.youtube.com/user/GoogleDevelopers', 'APIで解決される値'),
+    ('invalid_url', None),
+    ('', None),
+]
+    
+for url, expected in test_cases:
+    result = extract_channel_id_from_url(url)
+    print(f"URL: {url} -> {result} (expected: {expected})")

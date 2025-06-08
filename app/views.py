@@ -2,8 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .forms import CustomUserCreationForm, CustomAuthenticationForm, YouTube_SearchForm
-from .youtube_api_get import get_latest_video_by_channel_id, extract_video_id_from_url, get_video_details_by_id
+from .forms import CustomUserCreationForm, CustomAuthenticationForm, YouTube_SearchForm, ChannelInfoForm
+from .youtube_api_get import *
 from .models import Video, Bookmark
 from django.views.decorators.http import require_POST
 from datetime import datetime
@@ -55,25 +55,74 @@ def my_page(request):
 
 @login_required
 def search(request):
-    """requestからapiにデータを送って検索"""
+    """チャンネル情報取得と動画検索の統合処理"""
     videos = []
+    channel_data = None
+    search_form = YouTube_SearchForm()
+    channel_form = ChannelInfoForm()
+    
     if request.method == 'POST':
-        form = YouTube_SearchForm(request.POST)
-        if form.is_valid():
-            channel_id = form.cleaned_data['channel_id']
-            keyword = form.cleaned_data['keyword']
-            max_results = form.cleaned_data['max_results']
-            if not channel_id.strip():
-                return redirect('search')
-            videos = get_latest_video_by_channel_id(channel_id, keyword, max_results)
-    else:
-        form = YouTube_SearchForm()
-    return render(request, 'myapp/search.html', {'form': form, 'videos': videos})
+        # チャンネルリンクからchannel_idを検索し、そのチャンネルの動画と情報を返す処理
+        if 'channel_input' in request.POST:
+            channel_form = ChannelInfoForm(request.POST)
+            if channel_form.is_valid():
+                channel_input = channel_form.cleaned_data['channel_input']
+                keyword = request.POST.get('keyword', '').strip()
+                max_results = int(request.POST.get('max_results', 10))
+                
+                # チャンネルIDを抽出
+                channel_id = extract_channel_id_from_url(channel_input)
+                if channel_id:
+                    # チャンネル情報を取得
+                    channel_data = get_channel_details_by_id(channel_id)
+                    if channel_data:
+                        messages.success(request, 'チャンネル情報を取得しました')
+                        try:
+                            videos = get_latest_video_by_channel_id(channel_id, keyword, max_results)
+                            if videos:
+                                messages.success(request, f'動画を{len(videos)}件見つけました')
+                            else:
+                                messages.info(request, 'このチャンネルに動画が見つかりませんでした')
+                        except Exception as e:
+                            print(f"Error fetching videos: {e}")
+                            messages.warning(request, 'チャンネル情報は取得できましたが、動画の検索でエラーが発生しました')
+                    else:
+                        messages.error(request, 'チャンネル情報を取得できませんでした')
+                else:
+                    messages.error(request, '有効なチャンネルIDまたはURLを入力してください')
+                
+        
+        # チャンネルIDが直接指定された場合
+        elif 'channel_id' in request.POST:
+            search_form = YouTube_SearchForm(request.POST)
+            if search_form.is_valid():
+                channel_id = search_form.cleaned_data['channel_id']
+                keyword = search_form.cleaned_data['keyword']
+                max_results = search_form.cleaned_data['max_results']
+                if channel_id.strip():
+                    # チャンネル情報も同時に取得
+                    channel_data = get_channel_details_by_id(channel_id)
+                    # 動画を検索
+                    videos = get_latest_video_by_channel_id(channel_id, keyword, max_results)
+                    if videos:
+                        messages.success(request, f'動画を{len(videos)}件見つけました')
+                    else:
+                        messages.warning(request, '動画が見つかりませんでした')
+                else:
+                    messages.error(request, 'チャンネルIDを入力してください')
+    
+    context = {
+        'search_form': search_form,
+        'channel_form': channel_form,
+        'videos': videos,
+        'channel_data': channel_data
+    }
+    return render(request, 'myapp/search.html', context)
 
 @login_required
 @require_POST
 def toggle_bookmark(request):
-    """ブックマークを追加、削除を行う"""
+    ##ブックマークを追加、削除を行う
     try:
         data = json.loads(request.body)
         video_data = data.get('video')

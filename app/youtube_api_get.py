@@ -54,8 +54,7 @@ def get_latest_video_by_channel_id(channel_id, keyword = None, max_results = Non
 
     return videos
 
-##チャンネルリンクからチャンネルIDを取得
-##1.受け取ったチャンネル名からチャンネルIDを取得
+##受け取ったチャンネル名からチャンネルIDを取得
 
 def get_channel_id_by_channel_name(channel_name):
     if not YOUTUBE_API_KEY:
@@ -72,6 +71,81 @@ def get_channel_id_by_channel_name(channel_name):
         return None
 
     return response['items'][0]['snippet']['channelId']
+
+##urlからchannelIdを抽出
+def extract_channel_id_from_url(url):
+    input_text = url.strip()
+    if re.match(r'^UC[a-zA-Z0-9_-]{22}$', input_text):
+        return input_text
+    patterns = [
+        # /channel/形式（直接チャンネルIDが含まれる）
+        r'youtube\.com/channel/([a-zA-Z0-9_-]{24})',
+        
+        # /c/カスタムURL形式
+        r'youtube\.com/c/([a-zA-Z0-9_-]+)',
+        
+        # /@ハンドル形式
+        r'youtube\.com/@([a-zA-Z0-9_-]+)',
+        
+        # /user/ユーザー名形式（古い形式）
+        r'youtube\.com/user/([a-zA-Z0-9_-]+)',
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, input_text)
+        if match:
+            extracted = match.group(1)
+            if 'channel/' in pattern:
+                return extracted
+            return get_channel_id_by_channel_name(extracted)
+    
+    if not ('http' in input_text.lower() or 'www.' in input_text.lower() or '.com' in input_text.lower()):
+        # チャンネル名として検索
+        return get_channel_id_by_channel_name(input_text)
+    
+    return None
+
+def get_channel_details_by_id(channel_id):
+    if not YOUTUBE_API_KEY:
+        return None
+    
+    try:
+        youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, developerKey=YOUTUBE_API_KEY)
+        
+        # channels.list APIを使用してチャンネル情報を取得
+        channel_response = youtube.channels().list(
+            part='snippet,statistics',
+            id=channel_id
+        ).execute()
+        
+        if not channel_response['items']:
+            return None
+
+        channel_item = channel_response['items'][0]
+        snippet = channel_item['snippet']
+        statistics = channel_item.get('statistics', {})
+
+        channel_icon = snippet.get('thumbnails', {})
+        channel_icon_url = (
+            channel_icon.get('high', {}).get('url') or
+            channel_icon.get('medium', {}).get('url') or
+            channel_icon.get('default', {}).get('url') or
+            ''
+        )
+        
+        channel_data = {
+            'channel_id': channel_id,
+            'title': snippet.get('title', ''),
+            'description': snippet.get('description', ''),
+            'thumbnail': channel_icon_url,
+            'subscriber_count': statistics.get('subscriberCount', '0'),
+            'video_count': statistics.get('videoCount', '0'),
+        }
+        return channel_data
+        
+    except Exception as e:
+        print(f"Error in get_channel_details_by_id: {e}")
+        return None
 
 ##urlからvideoIDを抽出 
 def extract_video_id_from_url(url):

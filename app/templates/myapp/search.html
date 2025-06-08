@@ -9,117 +9,349 @@
 
 {% block content %}
 <div class="container-fluid">
+    <!-- ダークモード切り替えボタン -->
+    <div class="theme-toggle-container mb-3">
+        <button id="theme-toggle" class="theme-toggle-btn" onclick="toggleTheme()">
+            <i class="fas fa-moon theme-icon-dark"></i>
+            <i class="fas fa-sun theme-icon-light"></i>
+            <span class="theme-text">ダークモード</span>
+        </button>
+    </div>
+
     <!-- ヘッダーセクション -->
     <div class="search-header mb-5">
         <div class="d-flex align-items-center mb-3">
             <div class="search-icon me-3">
                 <i class="fas fa-search"></i>
             </div>
-            <h1 class="search-title mb-0">動画を探す</h1>
+            <h1 class="search-title mb-0">チャンネル検索</h1>
         </div>
-        <p class="search-subtitle">YouTubeチャンネルから動画を検索して、お気に入りに追加しましょう</p>
+        <p class="search-subtitle">チャンネル情報を取得して、動画を一度に検索できます</p>
     </div>
 
-    <!-- 検索フォーム -->
-    <div class="search-form-container mb-5">
-        <div class="search-form-card">
-            <form method="post" class="search-form" id="main-search-form">
-                {% csrf_token %}
-                <div class="row g-3">
-                    <div class="col-lg-3 col-md-6">
-                        <div class="form-floating">
-                            {{ form.channel_id }}
-                            <label for="{{ form.channel_id.id_for_label }}">{{ form.channel_id.label }}</label>
-                        </div>
-                    </div>
-                    <div class="col-lg-3 col-md-6">
-                        <div class="form-floating">
-                            {{ form.keyword }}
-                            <label for="{{ form.keyword.id_for_label }}">{{ form.keyword.label }}</label>
-                        </div>
-                    </div>
-                    <div class="col-lg-2 col-md-6">
-                        <div class="form-floating">
-                            {{ form.max_results }}
-                            <label for="{{ form.max_results.id_for_label }}">{{ form.max_results.label }}</label>
-                        </div>
-                    </div>
-                    <div class="col-lg-4 col-md-6 d-flex align-items-end">
-                        <button class="btn btn-primary btn-search w-100" type="submit">
-                            <i class="fas fa-search me-2"></i>
-                            動画を検索
-                        </button>
-                    </div>
+    <!-- メッセージ表示 -->
+    {% if messages %}
+        <div class="messages-container mb-4">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
-            </form>
+            {% endfor %}
         </div>
-    </div>
+    {% endif %}
 
-    <!-- URL直接保存セクション - 検索結果が表示されていない時のみ表示 -->
-    {% if not videos %}
-    <div class="url-save-container mb-5">
-        <div class="url-save-card">
-            <div class="url-save-header mb-4">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="url-icon me-3">
-                        <i class="fas fa-link"></i>
+    <!-- 統合された検索フォーム -->
+    <div class="integrated-search-container mb-5">
+        <div class="integrated-search-card">
+            <div class="search-form-header mb-4">
+                <div class="d-flex align-items-center justify-content-center mb-3">
+                    <div class="search-form-icon me-3">
+                        <i class="fas fa-rocket"></i>
                     </div>
-                    <h3 class="url-title mb-0">URL直接保存</h3>
+                    <h3 class="search-form-title mb-0">チャンネル＆動画検索</h3>
                 </div>
-                <p class="url-subtitle">YouTube動画のURLを入力して、直接ブックマークに保存できます</p>
+                <p class="search-form-subtitle text-center">チャンネル情報と動画を一度に取得します</p>
             </div>
             
-            <form id="url-save-form" class="url-form">
+            <form method="post" class="integrated-search-form" action="{% url 'search' %}">
                 {% csrf_token %}
                 <div class="row g-3 align-items-end">
-                    <div class="col-lg-8 col-md-7">
+                    <div class="col-lg-6 col-md-12">
                         <div class="form-floating">
-                            <input type="url" 
-                                   class="form-control" 
-                                   id="video-url" 
-                                   placeholder="https://www.youtube.com/watch?v=..."
-                                   required>
-                            <label for="video-url">YouTube動画URL</label>
+                            {{ channel_form.channel_input }}
+                            <label for="{{ channel_form.channel_input.id_for_label }}">{{ channel_form.channel_input.label }}</label>
                         </div>
                         <div class="form-text mt-2">
                             <i class="fas fa-info-circle me-1"></i>
-                            例: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+                            例: UC_x5XG1OV2P6uZZ5FSM9Ttw または https://www.youtube.com/@GoogleDevelopers
                         </div>
                     </div>
-                    <div class="col-lg-4 col-md-5">
-                        <button class="btn btn-success btn-save w-100" type="submit">
-                            <i class="fas fa-bookmark me-2"></i>
-                            <span class="save-btn-text">保存</span>
+                    <div class="col-lg-2 col-md-4">
+                        <div class="form-floating">
+                            <input type="text" 
+                                   class="form-control" 
+                                   name="keyword" 
+                                   id="keyword"
+                                   placeholder="キーワード（オプション）"
+                                   value="{{ request.POST.keyword|default:'' }}">
+                            <label for="keyword">キーワード</label>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-4">
+                        <div class="form-floating">
+                            <input type="number" 
+                                   class="form-control" 
+                                   name="max_results" 
+                                   id="max_results"
+                                   min="1" 
+                                   max="50"
+                                   value="{{ request.POST.max_results|default:'10' }}"
+                                   placeholder="最大取得数">
+                            <label for="max_results">取得数</label>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-4">
+                        <button class="btn btn-gradient-primary btn-search-integrated w-100 h-100" type="submit">
+                            <div class="btn-content">
+                                <i class="fas fa-search-plus me-2"></i>
+                                <span class="btn-text">検索開始</span>
+                            </div>
                         </button>
                     </div>
                 </div>
             </form>
-            
-            <!-- 保存結果表示エリア -->
-            <div id="save-result" class="save-result mt-4" style="display: none;">
-                <div class="save-result-content">
-                    <div class="save-thumbnail">
-                        <img id="result-thumbnail" src="" alt="サムネイル">
+        </div>
+    </div>
+
+    <!-- チャンネル情報表示エリア（コンパクト版） -->
+    {% if channel_data %}
+    <div class="channel-result-compact mb-4">
+        <div class="channel-card-compact">
+            <div class="channel-header-compact">
+                <div class="channel-avatar-compact">
+                    <img src="{{ channel_data.thumbnail }}" 
+                         alt="{{ channel_data.title }}" 
+                         class="channel-avatar-img-compact"
+                         onerror="this.src='https://via.placeholder.com/80x80/4285f4/ffffff?text={{ channel_data.title|first|upper }}'"
+                         loading="lazy">
+                    <div class="channel-verified-compact">
+                        <i class="fas fa-check-circle"></i>
                     </div>
-                    <div class="save-info">
-                        <h5 id="result-title" class="save-video-title"></h5>
-                        <p id="result-channel" class="save-video-channel"></p>
-                        <div class="save-actions">
-                            <a id="result-link" href="" target="_blank" class="btn btn-outline-primary btn-sm">
-                                <i class="fab fa-youtube me-1"></i>YouTube
-                            </a>
-                            <button id="channel-search-btn" 
-                                    class="btn btn-outline-secondary btn-sm" 
-                                    data-channel-id="" 
-                                    data-channel-title=""
-                                    title="このチャンネルの他の動画を検索">
-                                <i class="fas fa-search me-1"></i>チャンネル動画
-                            </button>
-                            <span class="save-status">
-                                <i class="fas fa-check-circle text-success me-1"></i>
-                                保存完了
-                            </span>
+                </div>
+                
+                <div class="channel-details-compact">
+                    <h4 class="channel-name-compact">{{ channel_data.title }}</h4>
+                    <div class="channel-id-compact">
+                        <i class="fas fa-hashtag"></i>
+                        <span class="channel-id-text-compact">{{ channel_data.channel_id }}</span>
+                        <button class="btn-copy-compact" onclick="copyToClipboard('{{ channel_data.channel_id }}')" title="コピー">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="channel-stats-inline">
+                        {% if channel_data.subscriber_count and channel_data.subscriber_count != '0' %}
+                        <span class="stat-inline subscribers">
+                            <i class="fas fa-users"></i>
+                            {{ channel_data.subscriber_count|floatformat:0 }}
+                        </span>
+                        {% endif %}
+                        
+                        {% if channel_data.video_count and channel_data.video_count != '0' %}
+                        <span class="stat-inline videos">
+                            <i class="fas fa-video"></i>
+                            {{ channel_data.video_count|floatformat:0 }}
+                        </span>
+                        {% endif %}
+                        
+                        <span class="stat-inline channel-type">
+                            <i class="fas fa-tv"></i>
+                            チャンネル
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="channel-actions-compact">
+                    <button class="btn-compact favorite" onclick="toggleChannelFavorite('{{ channel_data.channel_id }}')">
+                        <i class="fas fa-heart"></i>
+                        <span>お気に入り</span>
+                    </button>
+                    
+                    <a href="https://www.youtube.com/channel/{{ channel_data.channel_id }}" 
+                       target="_blank" 
+                       class="btn-compact youtube">
+                        <i class="fab fa-youtube"></i>
+                        <span>YouTube</span>
+                    </a>
+                    
+                    <button class="btn-compact share" onclick="shareChannel('{{ channel_data.title }}', 'https://www.youtube.com/channel/{{ channel_data.channel_id }}')">
+                        <i class="fas fa-share-alt"></i>
+                        <span>共有</span>
+                    </button>
+                </div>
+            </div>
+            
+            {% if channel_data.description %}
+            <div class="channel-description-compact">
+                <p class="description-compact">
+                    {% if channel_data.description|length > 120 %}
+                        <span class="description-preview-compact">{{ channel_data.description|slice:":120" }}...</span>
+                        <span class="description-full-compact" style="display: none;">{{ channel_data.description }}</span>
+                        <button class="btn-expand-compact" onclick="toggleDescriptionCompact(this)">
+                            続きを読む
+                        </button>
+                    {% else %}
+                        {{ channel_data.description }}
+                    {% endif %}
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- URL直接保存セクション（改善版） -->
+    {% if not videos and not channel_data %}
+    <div class="url-save-container mb-5">
+        <div class="url-save-card-premium">
+            <!-- ヘッダーセクション -->
+            <div class="url-save-header-premium">
+                <div class="url-header-decoration">
+                    <div class="url-icon-premium">
+                        <i class="fas fa-link"></i>
+                    </div>
+                    <div class="url-pulse-animation"></div>
+                </div>
+                <h3 class="url-title-premium">URL直接保存</h3>
+                <p class="url-subtitle-premium">
+                    YouTube動画のURLを入力して、<br class="d-md-none">
+                    ワンクリックでブックマークに保存
+                </p>
+                
+                <!-- 使用例表示 -->
+                <div class="url-examples">
+                    <div class="example-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>通常動画URL</span>
+                    </div>
+                    <div class="example-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>ショート動画URL</span>
+                    </div>
+                    <div class="example-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>埋め込みURL</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- メインフォーム -->
+            <div class="url-form-premium">
+                <form id="url-save-form" class="url-form-main">
+                    {% csrf_token %}
+                    <div class="url-input-group">
+                        <div class="url-input-container">
+                            <div class="url-input-icon">
+                                <i class="fab fa-youtube"></i>
+                            </div>
+                            <input type="url" 
+                                   class="url-input-premium" 
+                                   id="video-url" 
+                                   placeholder="https://www.youtube.com/watch?v=..."
+                                   required
+                                   autocomplete="url">
+                            <div class="url-input-focus-border"></div>
                         </div>
+                        
+                        <button class="btn-save-premium" type="submit">
+                            <div class="btn-save-content">
+                                <i class="fas fa-bookmark"></i>
+                                <span class="btn-save-text">保存</span>
+                            </div>
+                            <div class="btn-save-loading" style="display: none;">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <span>保存中...</span>
+                            </div>
+                        </button>
+                    </div>
+                    
+                    <!-- 入力例 -->
+                    <div class="url-example-links">
+                        <span class="example-label">例:</span>
+                        <button type="button" class="example-link" data-url="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
+                            通常URL
+                        </button>
+                        <button type="button" class="example-link" data-url="https://youtu.be/dQw4w9WgXcQ">
+                            短縮URL
+                        </button>
+                        <button type="button" class="example-link" data-url="https://www.youtube.com/embed/dQw4w9WgXcQ">
+                            埋め込みURL
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- 保存結果表示エリア（改善版） -->
+            <div id="save-result" class="save-result-premium" style="display: none;">
+                <div class="save-result-animation">
+                    <div class="save-success-badge">
+                        <i class="fas fa-check-circle"></i>
+                        <span>保存完了!</span>
+                    </div>
+                </div>
+                
+                <div class="save-result-card-premium">
+                    <div class="save-result-media">
+                        <div class="save-thumbnail-wrapper">
+                            <img id="result-thumbnail" src="" alt="サムネイル" class="save-thumbnail-premium">
+                            <div class="save-bookmark-overlay">
+                                <i class="fas fa-bookmark"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="save-play-indicator">
+                            <div class="play-button-premium">
+                                <i class="fas fa-play"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="save-result-details">
+                        <div class="save-video-header">
+                            <h4 id="result-title" class="save-video-title-premium"></h4>
+                            <div class="save-video-badges">
+                                <span class="video-badge saved">
+                                    <i class="fas fa-bookmark"></i>
+                                    保存済み
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="save-video-meta">
+                            <div class="video-channel-info">
+                                <div class="channel-avatar-mini">
+                                    <i class="fab fa-youtube"></i>
+                                </div>
+                                <span id="result-channel" class="channel-name-mini"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="save-actions-premium">
+                            <a id="result-link" href="" target="_blank" class="save-action-btn primary">
+                                <i class="fab fa-youtube"></i>
+                                <span>YouTube で開く</span>
+                            </a>
+                            
+                            <button id="search-channel-btn" class="save-action-btn secondary" onclick="searchFromSavedVideo()">
+                                <i class="fas fa-search"></i>
+                                <span>チャンネル検索</span>
+                            </button>
+                            
+                            <button class="save-action-btn tertiary" onclick="shareVideo()">
+                                <i class="fas fa-share-alt"></i>
+                                <span>共有</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 次のアクション提案 -->
+                <div class="next-actions">
+                    <p class="next-actions-title">次にできること:</p>
+                    <div class="next-actions-grid">
+                        <button class="next-action-item" onclick="document.getElementById('video-url').focus()">
+                            <i class="fas fa-plus"></i>
+                            <span>別の動画を保存</span>
+                        </button>
+                        <button class="next-action-item" onclick="searchFromSavedVideo()">
+                            <i class="fas fa-search"></i>
+                            <span>関連動画を検索</span>
+                        </button>
+                        <a href="/favorites/" class="next-action-item">
+                            <i class="fas fa-heart"></i>
+                            <span>お気に入りを見る</span>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -127,76 +359,88 @@
     </div>
     {% endif %}
 
-    <!-- 検索結果 -->
-    <div class="search-results" id="search-results">
-        {% if videos %}
-            <div class="results-header mb-4">
-                <h3 class="results-title">検索結果 ({{ videos|length }}件)</h3>
-                <p class="results-subtitle">お気に入りに追加したい動画を見つけましょう</p>
+    <!-- 動画検索結果 -->
+    {% if videos %}
+    <div class="search-results">
+        <div class="results-header mb-4">
+            <div class="results-title-section">
+                <h3 class="results-title">
+                    <i class="fas fa-video me-2"></i>
+                    検索結果 ({{ videos|length }}件)
+                </h3>
+                <p class="results-subtitle">
+                    {% if channel_data %}
+                        {{ channel_data.title }}から見つかった動画
+                    {% else %}
+                        お気に入りに追加したい動画を見つけましょう
+                    {% endif %}
+                </p>
             </div>
             
-            <div class="video-grid" id="video-grid">
-                {% for video in videos %}
-                    <div class="video-card" data-video-id="{{ video.videoId }}">
-                        <div class="video-number">{{ forloop.counter }}</div>
-                        <div class="video-thumbnail-container">
-                            <img src="{{ video.thumbnail }}" alt="thumbnail" class="video-thumbnail">
-                            <div class="play-overlay">
-                                <i class="fas fa-play"></i>
-                            </div>
+            {% if channel_data %}
+            <div class="results-actions">
+                <button class="btn btn-outline-secondary btn-sm" onclick="clearSearch()">
+                    <i class="fas fa-times me-1"></i>
+                    検索をクリア
+                </button>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="video-grid">
+            {% for video in videos %}
+                <div class="video-card enhanced" data-video-id="{{ video.videoId }}">
+                    <div class="video-number">{{ forloop.counter }}</div>
+                    <div class="video-thumbnail-container">
+                        <img src="{{ video.thumbnail }}" alt="thumbnail" class="video-thumbnail">
+                        <div class="play-overlay">
+                            <i class="fas fa-play"></i>
                         </div>
-                        <div class="video-content">
-                            <h4 class="video-title">{{ video.title }}</h4>
-                            <div class="video-actions">
-                                <a href="https://www.youtube.com/watch?v={{ video.videoId }}" 
-                                   target="_blank" 
-                                   class="btn btn-outline-primary btn-sm">
-                                    <i class="fab fa-youtube me-1"></i>
-                                    YouTube
-                                </a>
-                                <button class="btn btn-sm bookmark-btn" 
-                                        type="button"
-                                        data-video-id="{{ video.videoId }}"
-                                        data-video-title="{{ video.title }}"
-                                        data-video-thumbnail="{{ video.thumbnail }}"
-                                        data-video-published="{{ video.publishedAt }}"
-                                        data-channel-id="{{ video.channelId }}"
-                                        data-channel-title="{{ video.channelTitle }}"
-                                        data-bookmarked="{% if video.videoId in bookmarked_video_ids %}true{% else %}false{% endif %}">
-                                    <i class="fas fa-bookmark me-1"></i>
-                                    <span class="bookmark-text">
-                                        {% if video.videoId in bookmarked_video_ids %}ブックマーク済み{% else %}ブックマーク{% endif %}
-                                    </span>
-                                </button>
-                            </div>
+                        <div class="video-duration" style="display: none;">
+                            <!-- 動画の長さ（将来の機能） -->
                         </div>
                     </div>
-                {% endfor %}
-            </div>
-            
-        {% elif videos is not none %}
-            <div class="no-results">
-                <div class="no-results-icon">
-                    <i class="fas fa-search"></i>
+                    <div class="video-content">
+                        <h4 class="video-title">{{ video.title }}</h4>
+                        <div class="video-meta">
+                            <span class="video-channel">{{ video.channelTitle }}</span>
+                            <span class="video-date">{{ video.publishedAt|date:"Y/m/d" }}</span>
+                        </div>
+                        <div class="video-actions">
+                            <a href="https://www.youtube.com/watch?v={{ video.videoId }}" 
+                               target="_blank" 
+                               class="btn btn-outline-primary btn-sm">
+                                <i class="fab fa-youtube me-1"></i>
+                                YouTube
+                            </a>
+                            <button class="btn btn-sm bookmark-btn" 
+                                    type="button"
+                                    data-video-id="{{ video.videoId }}"
+                                    data-video-title="{{ video.title }}"
+                                    data-video-thumbnail="{{ video.thumbnail }}"
+                                    data-video-published="{{ video.publishedAt }}"
+                                    data-channel-id="{{ video.channelId }}"
+                                    data-channel-title="{{ video.channelTitle }}"
+                                    data-bookmarked="false">
+                                <i class="fas fa-bookmark me-1"></i>
+                                <span class="bookmark-text">ブックマーク</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <h3>動画が見つかりませんでした</h3>
-                <p>検索条件を変更して、もう一度お試しください</p>
-            </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- プレビューモーダル -->
-<div id="player-modal" class="player-modal">
-    <div class="player-container">
-        <div class="player-header">
-            <h4>動画プレビュー</h4>
-            <button id="close-player" class="btn-close-player">
-                <i class="fas fa-times"></i>
-            </button>
+            {% endfor %}
         </div>
-        <div id="player-content"></div>
     </div>
+    {% elif videos is not none %}
+        <div class="no-results">
+            <div class="no-results-icon">
+                <i class="fas fa-search"></i>
+            </div>
+            <h3>動画が見つかりませんでした</h3>
+            <p>検索条件を変更して、もう一度お試しください</p>
+        </div>
+    {% endif %}
+
 </div>
 
 <!-- 通知トースト -->
@@ -204,5 +448,312 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+// グローバル変数
+let savedVideoData = null;
+
+// CSRFトークン取得
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+// 例URLセット機能
+function setExampleUrl(url) {
+    const input = document.getElementById('video-url');
+    if (input) {
+        input.value = url;
+        input.focus();
+        
+        // 入力アニメーション
+        input.style.transform = 'scale(1.02)';
+        setTimeout(() => {
+            input.style.transform = 'scale(1)';
+        }, 200);
+        
+        showToast('例URLが入力されました', 'info');
+    }
+}
+
+// ダークモード管理
+function toggleTheme() {
+    const body = document.body;
+    const themeToggle = document.getElementById('theme-toggle');
+    const themeText = themeToggle.querySelector('.theme-text');
+    
+    if (body.classList.contains('dark-theme')) {
+        body.classList.remove('dark-theme');
+        themeText.textContent = 'ダークモード';
+        localStorage.setItem('theme', 'light');
+    } else {
+        body.classList.add('dark-theme');
+        themeText.textContent = 'ライトモード';
+        localStorage.setItem('theme', 'dark');
+    }
+}
+
+// URL直接保存機能
+document.addEventListener('DOMContentLoaded', function() {
+    // テーマ適用
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+        document.body.classList.add('dark-theme');
+        const themeText = document.querySelector('.theme-text');
+        if (themeText) {
+            themeText.textContent = 'ライトモード';
+        }
+    }
+
+    // URL保存フォーム処理
+    const urlSaveForm = document.getElementById('url-save-form');
+    const videoUrlInput = document.getElementById('video-url');
+    const saveBtn = urlSaveForm ? urlSaveForm.querySelector('.btn-save-premium') : null;
+
+    if (urlSaveForm && saveBtn) {
+        // フォーム送信イベント
+        urlSaveForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const url = videoUrlInput.value.trim();
+            if (!url) {
+                showToast('URLを入力してください', 'warning');
+                return;
+            }
+
+            // ボタンの状態を変更
+            const saveContent = saveBtn.querySelector('.btn-save-content');
+            const saveLoading = saveBtn.querySelector('.btn-save-loading');
+            
+            if (saveContent && saveLoading) {
+                saveContent.style.display = 'none';
+                saveLoading.style.display = 'flex';
+            }
+            saveBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/save-video-url/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCsrfToken()
+                    },
+                    body: JSON.stringify({
+                        'url': url
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.success === true) {
+                        displaySaveResult(data.video);
+                        showToast(data.message, 'success');
+                        videoUrlInput.value = '';
+                    } else if (data.success === false) {
+                        displaySaveResult(data.video);
+                        showToast(data.message, 'info');
+                        videoUrlInput.value = '';
+                    } else if (data.error) {
+                        showToast(data.error, 'error');
+                    }
+                } else {
+                    showToast(data.error || 'サーバーエラーが発生しました', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('ネットワークエラーが発生しました', 'error');
+            } finally {
+                // ボタンの状態を元に戻す
+                if (saveContent && saveLoading) {
+                    saveContent.style.display = 'flex';
+                    saveLoading.style.display = 'none';
+                }
+                saveBtn.disabled = false;
+            }
+        });
+
+        // ボタン直接クリックイベント（バックアップ）
+        saveBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // フォーム送信をトリガー
+            urlSaveForm.dispatchEvent(new Event('submit'));
+        });
+    }
+
+    // 例URLボタンのイベント設定
+    const exampleLinks = document.querySelectorAll('.example-link');
+    exampleLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const url = this.getAttribute('onclick').match(/'([^']+)'/)[1];
+            setExampleUrl(url);
+        });
+    });
+});
+
+// 保存結果表示
+function displaySaveResult(video) {
+    savedVideoData = video;
+    const saveResult = document.getElementById('save-result');
+    if (!saveResult) return;
+
+    const resultThumbnail = document.getElementById('result-thumbnail');
+    const resultTitle = document.getElementById('result-title');
+    const resultChannel = document.getElementById('result-channel');
+    const resultLink = document.getElementById('result-link');
+    
+    if (resultThumbnail) resultThumbnail.src = video.thumbnail;
+    if (resultTitle) resultTitle.textContent = video.title;
+    if (resultChannel) resultChannel.textContent = video.channelTitle;
+    if (resultLink) resultLink.href = video.url;
+    
+    saveResult.style.display = 'block';
+    saveResult.scrollIntoView({ behavior: 'smooth' });
+}
+
+// 保存した動画のチャンネルで検索
+function searchFromSavedVideo() {
+    if (!savedVideoData || !savedVideoData.channelId) {
+        showToast('チャンネル情報が見つかりません', 'error');
+        return;
+    }
+    
+    // チャンネルIDを検索フォームに設定して送信
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/search/';
+    
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = getCsrfToken();
+    
+    const channelInput = document.createElement('input');
+    channelInput.type = 'hidden';
+    channelInput.name = 'channel_input';
+    channelInput.value = savedVideoData.channelId;
+    
+    const maxResultsInput = document.createElement('input');
+    maxResultsInput.type = 'hidden';
+    maxResultsInput.name = 'max_results';
+    maxResultsInput.value = '10';
+    
+    form.appendChild(csrfInput);
+    form.appendChild(channelInput);
+    form.appendChild(maxResultsInput);
+    
+    document.body.appendChild(form);
+    form.submit();
+}
+
+// 動画共有
+function shareVideo() {
+    if (!savedVideoData) return;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: savedVideoData.title,
+            url: savedVideoData.url
+        }).then(() => {
+            showToast('共有しました', 'success');
+        }).catch((error) => {
+            copyToClipboard(savedVideoData.url);
+        });
+    } else {
+        copyToClipboard(savedVideoData.url);
+    }
+}
+
+// 検索をクリア
+function clearSearch() {
+    window.location.href = '/search/';
+}
+
+// チャンネルお気に入り機能
+function toggleChannelFavorite(channelId) {
+    const button = event.currentTarget;
+    const icon = button.querySelector('i');
+    const span = button.querySelector('span');
+    
+    if (button.classList.contains('favorited')) {
+        button.classList.remove('favorited');
+        icon.className = 'fas fa-heart';
+        span.textContent = 'お気に入り';
+        showToast('お気に入りから削除しました', 'info');
+    } else {
+        button.classList.add('favorited');
+        icon.className = 'fas fa-heart';
+        span.textContent = 'お気に入り済み';
+        showToast('お気に入りに追加しました', 'success');
+    }
+    
+    console.log('Channel favorite toggled:', channelId);
+}
+
+// コンパクト版説明展開機能
+function toggleDescriptionCompact(button) {
+    const preview = button.parentElement.querySelector('.description-preview-compact');
+    const full = button.parentElement.querySelector('.description-full-compact');
+    
+    if (full.style.display === 'none') {
+        preview.style.display = 'none';
+        full.style.display = 'inline';
+        button.textContent = '折りたたむ';
+    } else {
+        preview.style.display = 'inline';
+        full.style.display = 'none';
+        button.textContent = '続きを読む';
+    }
+}
+
+// その他の既存の関数
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        showToast('クリップボードにコピーしました', 'success');
+    }, function(err) {
+        console.error('コピーに失敗しました: ', err);
+        showToast('コピーに失敗しました', 'error');
+    });
+}
+
+function shareChannel(title, url) {
+    if (navigator.share) {
+        navigator.share({
+            title: title,
+            url: url
+        }).then(() => {
+            showToast('共有しました', 'success');
+        }).catch((error) => {
+            copyToClipboard(url);
+        });
+    } else {
+        copyToClipboard(url);
+    }
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show`;
+    toast.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.getElementById('toast-container');
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.remove();
+        }
+    }, 5000);
+}
+</script>
 <script src="{% static 'myapp/js/search.js' %}"></script>
 {% endblock %} 
